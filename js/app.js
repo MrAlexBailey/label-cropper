@@ -1,4 +1,5 @@
 import { processPdf, toCanvas } from "./pipeline.js";
+import { buildPdf } from "./output.js";
 
 const $ = (s) => document.querySelector(s);
 const drop = $("#drop");
@@ -6,9 +7,11 @@ const input = $("#file");
 const list = $("#labels");
 const toolbar = $("#toolbar");
 const status = $("#status");
-const printArea = $("#print-area");
 
-/** @type {{ id: number, name: string, method: string, canvas: HTMLCanvasElement }[]} */
+/**
+ * @type {{ id: number, name: string, method: string, canvas: HTMLCanvasElement,
+ *          source: Uint8Array, vector: object }[]}
+ */
 let labels = [];
 let nextId = 1;
 
@@ -28,14 +31,18 @@ async function addFiles(files) {
   for (const file of pdfs) {
     setStatus(`Reading ${file.name}…`);
     try {
-      const found = await processPdf(await file.arrayBuffer());
+      const source = new Uint8Array(await file.arrayBuffer());
+      const found = await processPdf(source.slice()); // pdf.js may detach its copy
       if (!found.length) {
         setStatus(`No label found in ${file.name}.`);
         continue;
       }
       for (const l of found) {
         const suffix = found.length > 1 ? ` (page ${l.page})` : "";
-        labels.push({ id: nextId++, name: file.name + suffix, method: l.method, canvas: toCanvas(l.pixels) });
+        labels.push({
+          id: nextId++, name: file.name + suffix, method: l.method,
+          canvas: toCanvas(l.pixels), source, vector: l.vector,
+        });
       }
       setStatus("");
     } catch (err) {
@@ -81,31 +88,63 @@ function render() {
   $("#count").textContent = `${labels.length} label${labels.length === 1 ? "" : "s"}`;
 }
 
-function printLabels() {
-  printArea.replaceChildren(
-    ...labels.map((l) => {
-      const img = new Image();
-      img.src = l.canvas.toDataURL("image/png");
-      img.alt = "";
-      const sheet = document.createElement("div");
-      sheet.className = "sheet";
-      sheet.append(img);
-      return sheet;
-    }),
-  );
-  // give images a tick to decode before the dialog snapshots the page
-  setTimeout(() => window.print(), 50);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+async function pdfUrl() {
+  const bytes = await buildPdf(labels);
+  return URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
 }
 
-function downloadPdf() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: "portrait", unit: "in", format: [4, 6], compress: true });
-  labels.forEach((l, i) => {
-    if (i) pdf.addPage([4, 6], "portrait");
-    pdf.addImage(l.canvas.toDataURL("image/png"), "PNG", 0, 0, 4, 6, undefined, "FAST");
-  });
-  const base = labels.length === 1 ? labels[0].name.replace(/\.pdf.*$/i, "") : "labels";
-  pdf.save(`${base}-4x6.pdf`);
+async function printLabels() {
+  // iOS can't print a PDF from inside a page; open it so the share sheet's Print works.
+  // The tab is opened before any await so popup blockers allow it.
+  const tab = isIOS ? window.open("", "_blank") : null;
+  setStatus("Preparing labels…");
+  try {
+    const url = await pdfUrl();
+    if (tab) {
+      tab.location.href = url;
+    } else {
+      let frame = $("#print-frame");
+      if (!frame) {
+        frame = document.createElement("iframe");
+        frame.id = "print-frame";
+        frame.title = "Labels to print";
+        frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+        document.body.append(frame);
+      }
+      frame.onload = () => {
+        try {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } catch {
+          window.open(url, "_blank"); // some browsers won't print an embedded PDF
+        }
+      };
+      frame.src = url;
+    }
+    setStatus("");
+  } catch (err) {
+    tab?.close();
+    console.error(err);
+    setStatus(`Couldn't prepare the labels: ${err.message}`);
+  }
+}
+
+async function downloadPdf() {
+  setStatus("Preparing PDF…");
+  try {
+    const a = document.createElement("a");
+    a.href = await pdfUrl();
+    const base = labels.length === 1 ? labels[0].name.replace(/\.pdf.*$/i, "") : "labels";
+    a.download = `${base}-4x6.pdf`;
+    a.click();
+    setStatus("");
+  } catch (err) {
+    console.error(err);
+    setStatus(`Couldn't build the PDF: ${err.message}`);
+  }
 }
 
 input.addEventListener("change", () => {

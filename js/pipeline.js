@@ -31,18 +31,35 @@ async function renderGray(page, scale) {
   return { gray, w, h };
 }
 
+// Where the label sits in the PDF's own (unrotated, y-up) coordinates, and how far to turn it
+// counter-clockwise to stand upright. Used to build vector output without rasterizing.
+function vectorPlacement(page, box, landscape) {
+  const vp = page.getViewport({ scale: 1 });
+  const corners = [[box.x0, box.y0], [box.x1, box.y1]].map(([fx, fy]) =>
+    vp.convertToPdfPoint(fx * vp.width, fy * vp.height));
+  const xs = corners.map((p) => p[0]), ys = corners.map((p) => p[1]);
+  return {
+    pageIndex: page.pageNumber - 1,
+    bbox: { left: Math.min(...xs), bottom: Math.min(...ys), right: Math.max(...xs), top: Math.max(...ys) },
+    // the viewer shows content turned clockwise by page.rotate; landscape labels then turn back 90°
+    rotate: ((((landscape ? 90 : 0) - page.rotate) % 360) + 360) % 360,
+  };
+}
+
 async function renderLabel(page, box) {
   const { width, height } = page.getViewport({ scale: 1 }); // points, rotation applied
   const { scale, landscape } = planRender(box, width, height);
   const { gray, w, h } = await renderGray(page, scale);
-  return layoutLabel(gray, w, h, box, landscape);
+  return { pixels: layoutLabel(gray, w, h, box, landscape), vector: vectorPlacement(page, box, landscape) };
 }
 
 /**
  * Returns [{ page, method, pixels }] where method is "page" (already 4x6), "border"
  * (bordered label found), "trim" (label-sized page, margins trimmed) or "content"
  * (full sheet with no border: guessed from where the ink is, so check it).
- * pixels is a Uint8Array OUT_W*OUT_H of 0/255.
+ * pixels is a Uint8Array OUT_W*OUT_H of 0/255 (preview, and the fallback for output);
+ * vector says where to find the label in the source PDF (see vectorPlacement).
+ * data is consumed (pdf.js may detach it), so pass a copy if you need the bytes later.
  */
 export async function processPdf(data) {
   const doc = await pdfjsLib.getDocument({ data }).promise;
@@ -52,12 +69,12 @@ export async function processPdf(data) {
       const page = await doc.getPage(n);
       const { width, height } = page.getViewport({ scale: 1 });
       if (is4x6(width, height)) {
-        labels.push({ page: n, method: "page", pixels: await renderLabel(page, { x0: 0, y0: 0, x1: 1, y1: 1 }) });
+        labels.push({ page: n, method: "page", ...(await renderLabel(page, { x0: 0, y0: 0, x1: 1, y1: 1 })) });
         continue;
       }
       const d = await renderGray(page, DETECT_SCALE);
       const box = findLabelBox(d.gray, d.w, d.h);
-      if (box) labels.push({ page: n, method: "border", pixels: await renderLabel(page, box) });
+      if (box) labels.push({ page: n, method: "border", ...(await renderLabel(page, box)) });
     }
     if (!labels.length && doc.numPages) {
       const page = await doc.getPage(1);
@@ -66,7 +83,7 @@ export async function processPdf(data) {
       const labelSized = Math.max(width, height) <= 7.5 * 72;
       const box = contentBox(d.gray, d.w, d.h, labelSized);
       // Trimming margins off a label-sized page is reliable; guessing on a full sheet isn't.
-      if (box) labels.push({ page: 1, method: labelSized ? "trim" : "content", pixels: await renderLabel(page, box) });
+      if (box) labels.push({ page: 1, method: labelSized ? "trim" : "content", ...(await renderLabel(page, box)) });
     }
   } finally {
     doc.destroy();

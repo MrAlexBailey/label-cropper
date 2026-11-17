@@ -109,14 +109,3 @@ a { color: var(--accent); text-underline-offset: 2px; }
 .help { margin-top: 32px; color: var(--muted); }
 .help summary { cursor: pointer; color: var(--text); }
 
-#print-area { display: none; }
-
-@media print {
-  @page { size: 4in 6in; margin: 0; }
-  body { background: #fff; }
-  .app { display: none; }
-  #print-area { display: block; }
-  .sheet { width: 4in; height: 6in; page-break-after: always; break-after: page; overflow: hidden; }
-  .sheet:last-child { page-break-after: auto; break-after: auto; }
-  .sheet img { width: 4in; height: 6in; display: block; }
-}

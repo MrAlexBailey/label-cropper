@@ -42,10 +42,12 @@ try {
   const frame = document.getElementById("app");
   frame.src = "/";
   // the initial about:blank document can fire load first, so wait for the real page
-  await until(() => frame.contentWindow.jspdf && frame.contentDocument.getElementById("file"));
+  // (module scripts run before "complete", so app.js's listeners are attached by then)
+  await until(() => frame.contentWindow.PDFLib && frame.contentDocument.getElementById("file") &&
+    frame.contentDocument.readyState === "complete");
   const doc = frame.contentDocument, win = frame.contentWindow;
   let savedPdf = null;
-  // jsPDF's save() hands the file to the browser via a blob URL; capture the blob there.
+  // Download PDF hands the file to the browser via a blob URL; capture the blob there.
   // (pdf.js also uses blob URLs for its worker, so only intercept PDFs.)
   const realCreate = win.URL.createObjectURL.bind(win.URL);
   win.URL.createObjectURL = (blob) => {
