@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4×6 Label Cropper</title>
+  <meta name="description" content="Crop shipping labels out of letter-size PDFs into 4×6 for thermal label printers. Runs entirely in your browser; files are never uploaded.">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>4×6 Label Cropper</h1>
+      <p class="lede">Drop a shipping label PDF from USPS, UPS, FedEx, eBay, Vinted or Mercari. You'll get a 4×6 label ready for a thermal printer.</p>
+    </header>
+
+    <label id="drop" class="drop">
+      <input id="file" type="file" accept="application/pdf,.pdf" multiple>
+      <span class="drop-title">Choose PDFs or drop them here</span>
+      <span class="drop-sub">Your files stay on this device. Nothing is uploaded.</span>
+    </label>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <div id="toolbar" class="toolbar" hidden>
+      <span id="count" class="count"></span>
+      <button id="print" type="button" class="primary">Print</button>
+      <button id="download" type="button">Download PDF</button>
+      <button id="clear" type="button" class="quiet">Clear</button>
+    </div>
+
+    <ul id="labels" class="labels"></ul>
+
+    <p id="thanks" class="thanks" hidden>
+      Saved you a fight with Acrobat?
+      <a href="https://buymeacoffee.com/mralexbailey" target="_blank" rel="noopener">Buy me a coffee ☕</a>
+    </p>
+
+    <details class="help">
+      <summary>Printing tips</summary>
+      <ul>
+        <li>Choose your label printer and set the paper size to 4×6 in (100×150 mm).</li>
+        <li>Set the scale to 100% or "Actual size", and turn off headers and footers.</li>
+        <li>On iPhone, tap Download PDF and open it in your printer's app.</li>
+      </ul>
+    </details>
+
+    <footer class="footer">
+      Free and open. Your labels never leave your device.
+      If it's useful, <a href="https://buymeacoffee.com/mralexbailey" target="_blank" rel="noopener">buy me a coffee</a>.
+    </footer>
+  </main>
+
+  <div id="print-area" aria-hidden="true"></div>
+</body>
+</html>

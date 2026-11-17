@@ -1,0 +1,5 @@
+# Real labels contain names and addresses; never commit them.
+test/fixtures/
+test/out/
+test/.chrome-profile/
+*.pdf

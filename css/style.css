@@ -1,0 +1,122 @@
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --text: #1c1b19;
+  --muted: #6b6862;
+  --border: #dcd9d2;
+  --accent: #1f5f4a;
+  --accent-text: #ffffff;
+  --warn-bg: #fff4dc;
+  --warn-border: #e2b04a;
+  --warn-text: #7a5410;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161614;
+    --surface: #212120;
+    --text: #ecebe7;
+    --muted: #a19e97;
+    --border: #3a3936;
+    --accent: #5fbf9a;
+    --accent-text: #0d1f18;
+    --warn-bg: #3a2e14;
+    --warn-border: #a8822f;
+    --warn-text: #f1d18b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161614;
+  --surface: #212120;
+  --text: #ecebe7;
+  --muted: #a19e97;
+  --border: #3a3936;
+  --accent: #5fbf9a;
+  --accent-text: #0d1f18;
+  --warn-bg: #3a2e14;
+  --warn-border: #a8822f;
+  --warn-text: #f1d18b;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.app { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.75rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+.lede { margin: 0 0 24px; color: var(--muted); max-width: 60ch; }
+
+.drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; min-height: 160px; padding: 24px; text-align: center; cursor: pointer;
+  background: var(--surface); border: 2px dashed var(--border); border-radius: var(--radius);
+  transition: border-color 0.15s, background 0.15s;
+}
+.drop:hover, .drop.over { border-color: var(--accent); }
+.drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop-title { font-weight: 600; font-size: 1.1rem; }
+.drop-sub { color: var(--muted); font-size: 0.9rem; }
+
+.status { min-height: 1.5em; margin: 12px 0; color: var(--muted); }
+
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px;
+  position: sticky; top: 0; z-index: 1; padding: 10px 0; background: var(--bg);
+}
+.toolbar[hidden] { display: none; }
+.count { margin-right: auto; color: var(--muted); }
+button {
+  font: inherit; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+}
+button:hover { border-color: var(--text); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button.quiet { border-color: transparent; background: transparent; color: var(--muted); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.labels {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+}
+.card.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.preview {
+  width: 100%; height: auto; aspect-ratio: 2 / 3; display: block;
+  background: #fff; border: 1px solid var(--border); border-radius: 4px;
+}
+.meta { display: flex; flex-direction: column; gap: 2px; font-size: 0.875rem; }
+.name { font-weight: 600; overflow-wrap: anywhere; }
+.note { color: var(--muted); }
+.card.warn .note { color: var(--warn-text); font-weight: 500; }
+.remove { align-self: flex-start; margin-top: 6px; padding: 4px 10px; font-size: 0.8rem; }
+
+a { color: var(--accent); text-underline-offset: 2px; }
+.thanks { margin: 20px 0 0; color: var(--muted); text-align: center; }
+.thanks[hidden] { display: none; }
+.thanks a { font-weight: 600; }
+.footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.875rem; }
+
+.help { margin-top: 32px; color: var(--muted); }
+.help summary { cursor: pointer; color: var(--text); }
+
+#print-area { display: none; }
+
+@media print {
+  @page { size: 4in 6in; margin: 0; }
+  body { background: #fff; }
+  .app { display: none; }
+  #print-area { display: block; }
+  .sheet { width: 4in; height: 6in; page-break-after: always; break-after: page; overflow: hidden; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .sheet img { width: 4in; height: 6in; display: block; }
+}

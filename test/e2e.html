@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>e2e</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<pre id="out">running</pre>
+<iframe id="app" style="width:390px;height:700px"></iframe>
+<script type="module">
+// 1. Runs the browser pipeline on every fixture PDF.
+// 2. Drives the real page (index.html) in an iframe: adds all fixture PDFs through the file
+//    input, reads the cards it shows, and clicks Download PDF (capturing jsPDF's output).
+// Results are POSTed to /__results. Run via test/run-e2e.mjs (headless Chrome).
+import { processPdf, toCanvas } from "../js/pipeline.js";
+const out = document.getElementById("out");
+const post = (body) => fetch("/__results", { method: "POST", body: JSON.stringify(body) });
+const until = async (cond, ms = 60000) => {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error("timed out waiting for UI");
+    await new Promise((r) => setTimeout(r, 100));
+  }
+};
+const toBase64 = (buf) => {
+  let s = "";
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+try {
+  const manifest = await (await fetch("fixtures/manifest.json")).json();
+  const pdfs = await Promise.all(manifest.map(async (f) =>
+    new File([await (await fetch("fixtures/" + encodeURIComponent(f.pdf))).arrayBuffer()], f.pdf, { type: "application/pdf" })));
+
+  const pipeline = [];
+  for (const [i, f] of manifest.entries()) {
+    const labels = await processPdf(await pdfs[i].arrayBuffer());
+    pipeline.push({
+      name: f.name, expected: f.method, got: labels.map((l) => l.method),
+      pngs: labels.map((l) => toCanvas(l.pixels).toDataURL("image/png")),
+    });
+  }
+
+  const frame = document.getElementById("app");
+  frame.src = "/";
+  // the initial about:blank document can fire load first, so wait for the real page
+  await until(() => frame.contentWindow.jspdf && frame.contentDocument.getElementById("file"));
+  const doc = frame.contentDocument, win = frame.contentWindow;
+  let savedPdf = null;
+  // jsPDF's save() hands the file to the browser via a blob URL; capture the blob there.
+  // (pdf.js also uses blob URLs for its worker, so only intercept PDFs.)
+  const realCreate = win.URL.createObjectURL.bind(win.URL);
+  win.URL.createObjectURL = (blob) => {
+    if (blob.type !== "application/pdf") return realCreate(blob);
+    blob.arrayBuffer().then((b) => (savedPdf = b));
+    return "about:blank";
+  };
+  win.HTMLAnchorElement.prototype.click = () => {}; // don't actually navigate/download
+
+  const dt = new DataTransfer();
+  pdfs.forEach((p) => dt.items.add(p));
+  const input = doc.getElementById("file");
+  input.files = dt.files;
+  input.dispatchEvent(new Event("change"));
+  try {
+    await until(() => doc.querySelectorAll(".card").length >= manifest.length && !doc.getElementById("status").textContent);
+  } catch (e) {
+    throw new Error(`${e.message}: ${doc.querySelectorAll(".card").length} cards, status "${doc.getElementById("status").textContent}"`);
+  }
+
+  const cards = [...doc.querySelectorAll(".card")].map((c) => ({
+    name: c.querySelector(".name").textContent, note: c.querySelector(".note").textContent, warn: c.classList.contains("warn"),
+  }));
+  doc.getElementById("download").click();
+  await until(() => savedPdf);
+
+  out.textContent = "done";
+  await post({
+    pipeline,
+    ui: {
+      cards, toolbarHidden: doc.getElementById("toolbar").hidden,
+      count: doc.getElementById("count").textContent, pdf: toBase64(savedPdf),
+    },
+  });
+} catch (e) {
+  out.textContent = "ERROR " + e.stack;
+  await post({ error: String(e.stack) });
+}
+</script>
