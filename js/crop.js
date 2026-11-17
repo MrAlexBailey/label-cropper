@@ -4,6 +4,9 @@
 export const DPI = 203;
 export const OUT_W = 812; // 4in at 203 dpi
 export const OUT_H = 1218; // 6in at 203 dpi
+const MARGIN = 20; // 0.1in at 203 dpi on every side, so slight feed drift can't clip the label
+const FIT_W = OUT_W - 2 * MARGIN;
+const FIT_H = OUT_H - 2 * MARGIN;
 export const DETECT_SCALE = 100 / 72; // detection renders at 100 dpi (PDF units are 1/72in)
 export const INK = 160; // gray below this counts as black
 
@@ -184,12 +187,12 @@ export function contentBox(gray, w, h, labelSized) {
   return { x0: left / w, y0: top / h, x1: (right + 1) / w, y1: bottom / h };
 }
 
-/** Render scale (pixels per PDF point) so the box fills 4x6, and whether to rotate. */
+/** Render scale (pixels per PDF point) so the box fills 4x6 inside the margin, and whether to rotate. */
 export function planRender(box, pageWPt, pageHPt) {
   const bw = (box.x1 - box.x0) * pageWPt;
   const bh = (box.y1 - box.y0) * pageHPt;
   const landscape = bw > bh;
-  const [tw, th] = landscape ? [OUT_H, OUT_W] : [OUT_W, OUT_H];
+  const [tw, th] = landscape ? [FIT_H, FIT_W] : [FIT_W, FIT_H];
   return { scale: Math.min(tw / bw, th / bh), landscape };
 }
 
@@ -203,8 +206,8 @@ export function layoutLabel(gray, w, h, box, landscape) {
   let cw = Math.round(box.x1 * w) - cx0, ch = Math.round(box.y1 * h) - cy0;
   // rotated size
   let rw = landscape ? ch : cw, rh = landscape ? cw : ch;
-  rw = Math.min(rw, OUT_W);
-  rh = Math.min(rh, OUT_H); // trims a pixel of rounding overflow, never real content
+  rw = Math.min(rw, FIT_W);
+  rh = Math.min(rh, FIT_H); // trims a pixel of rounding overflow, never real content
   const ox = (OUT_W - rw) >> 1, oy = (OUT_H - rh) >> 1;
 
   const out = new Uint8Array(OUT_W * OUT_H).fill(255);

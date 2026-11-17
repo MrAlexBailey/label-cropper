@@ -6,6 +6,9 @@ const { PDFDocument, degrees } = window.PDFLib;
 
 const PAGE_W = 288; // 4in in PDF points
 const PAGE_H = 432; // 6in
+const MARGIN = 7.2; // 0.1in on every side, so slight feed drift can't clip the label
+const FIT_W = PAGE_W - 2 * MARGIN;
+const FIT_H = PAGE_H - 2 * MARGIN;
 
 // Lower-left corner of a w x h box after turning it counter-clockwise about the origin.
 const TURNED_MIN = { 0: (w, h) => [0, 0], 90: (w, h) => [-h, 0], 180: (w, h) => [-w, -h], 270: (w, h) => [0, -w] };
@@ -13,8 +16,8 @@ const TURNED_MIN = { 0: (w, h) => [0, 0], 90: (w, h) => [-h, 0], 180: (w, h) => 
 function place(page, embedded, angle) {
   const turned = angle === 90 || angle === 270;
   const scale = Math.min(
-    PAGE_W / (turned ? embedded.height : embedded.width),
-    PAGE_H / (turned ? embedded.width : embedded.height),
+    FIT_W / (turned ? embedded.height : embedded.width),
+    FIT_H / (turned ? embedded.width : embedded.height),
   );
   const w = embedded.width * scale, h = embedded.height * scale;
   const [outW, outH] = turned ? [h, w] : [w, h];
